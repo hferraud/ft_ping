@@ -7,5 +7,10 @@ include_directories(include/)
 
 add_executable(ping
         src/main.c
-        src/parser/parser.c
-        include/parser/parser.h)
+        src/parser.c
+        include/parser.h
+        include/socket.h
+        src/socket.c
+        include/icmp.h
+        src/icmp.c
+        src/ping.c)
