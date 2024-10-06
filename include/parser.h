@@ -8,10 +8,10 @@
 typedef struct {
 	bool verbose;
 	char *destination;
-} config_t;
+} command_args_t;
 
-typedef void(*parse_fct_t)(char const*, config_t*);
+typedef void(*parse_fct_t)(char const*, command_args_t*);
 
-config_t parse(int argc, char** argv);
+command_args_t parse(int argc, char** argv);
 
 #endif

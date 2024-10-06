@@ -13,7 +13,10 @@ BUILD_DIR	=		.build/
 #---------- SOURCES ----------#
 
 SRC_FILES	=		main.c			\
-					parser/parser.c	\
+					parser.c		\
+					socket.c		\
+					ping.c			\
+					icmp.c			\
 
 #---------- BUILD ----------#
 
@@ -23,7 +26,7 @@ DEPS		=		$(addprefix $(BUILD_DIR), $(SRC:.c=.d))
 
 #---------- COMPILATION ----------#
 
-C_FLAGS		=		-Wall -Werror -Wextra
+C_FLAGS		=		-Wall -Werror -Wextra -g3
 
 I_FLAGS		=		-I$(INC_DIR)
 
