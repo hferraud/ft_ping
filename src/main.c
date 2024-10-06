@@ -6,16 +6,10 @@
 
 int main(int argc, char** argv) {
 	command_args_t args;
-	struct sockaddr_in address;
+	ping_data_t ping_data;
 
 	args = parse(argc, argv);
-	if (dns_lookup(args.destination, &address) == -1) {
-		return errno;
-	}
-	int socket_fd = init_icmp_socket();
-	if (socket_fd == -1) {
-		return errno;
-	}
-	ping(socket_fd, address);
+	init_ping(&args, &ping_data);
+	ping(&ping_data);
 	return 0;
 }

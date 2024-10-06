@@ -1,30 +1,28 @@
-#include <unistd.h>
 #include <string.h>
 
 #include "icmp.h"
 
-struct icmphdr create_icmp_header();
+static struct icmphdr create_icmp_header(ping_data_t *ping_data);
 static uint16_t icmp_checksum(void* packet, size_t len);
 
-void create_icmp_packet(uint8_t* packet, size_t len) {
+void create_icmp_packet(ping_data_t *ping_data) {
 	struct icmphdr *header;
 
-	header = (struct icmphdr *)packet;
-	*header = create_icmp_header();
-	header->checksum = icmp_checksum(packet, len);
+	header = (struct icmphdr *)ping_data->packet;
+	*header = create_icmp_header(ping_data);
+	header->checksum = icmp_checksum(ping_data->packet, ping_data->packet_size);
 }
 
-struct icmphdr create_icmp_header() {
+static struct icmphdr create_icmp_header(ping_data_t *ping_data) {
 	struct icmphdr header = {0};
 
-	header.type = ICMP_ECHO;
-	header.un.echo.id = getpid();
-	header.un.echo.sequence = 0;
-	header.code = 0;
+	header.type = ping_data->type;
+	header.un.echo.id = ping_data->pid;
+	header.un.echo.sequence = ping_data->sequence;
 	return header;
 }
 
-uint16_t icmp_checksum(void* packet, size_t len) {
+static uint16_t icmp_checksum(void* packet, size_t len) {
 	uint32_t sum;
 	uint16_t *buffer = packet;
 

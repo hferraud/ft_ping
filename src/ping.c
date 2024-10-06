@@ -2,52 +2,102 @@
 #include <netinet/ip_icmp.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "icmp.h"
+#include "ping.h"
+#include "parser.h"
+#include "socket.h"
 
-int32_t echo_request(int32_t socket_fd, struct sockaddr_in address, struct timeval *send_timestamp);
-int32_t echo_response(int32_t socket_fd, struct sockaddr_in address, struct timeval *recv_timestamp);
+int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
+int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp);
 
-int32_t ping(int32_t socket_fd, struct sockaddr_in address) {
+/**
+ * @return On success 0 is returned. On error, -1 is returned.
+ */
+int32_t ping(ping_data_t *ping_data) {
 	struct timeval send_timestamp;
 	struct timeval recv_timestamp;
 
-	if (echo_request(socket_fd, address, &send_timestamp) == -1) {
+	if (echo_request(ping_data, &send_timestamp) == -1) {
 		return -1;
 	}
-	if (echo_response(socket_fd, address, &recv_timestamp) == -1) {
+	if (echo_response(ping_data, &recv_timestamp) == -1) {
 		return -1;
 	}
 	return 0;
 }
 
+/**
+ * @return On success 0 is returned. On error, -1 is returned.
+ */
+int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
+	ping_data->packet_size = DEFAULT_PACKET_SIZE + sizeof(struct icmphdr);
+	ping_data->sequence = 0;
+	ping_data->pid = getpid();
+	ping_data->type = ICMP_ECHO;
+	if (dns_lookup(args->destination, &ping_data->address) != 0) {
+		return -1;
+	}
+	ping_data->socket_fd = init_icmp_socket();
+	if (ping_data->socket_fd == -1) {
+		return -1;
+	}
+	return 0;
+}
 
 /**
- * @return -1 on error, 0 otherwise.
+ * @return On success 0 is returned. On error, -1 is returned and errno is set.
  */
-int32_t echo_request(int32_t socket_fd, struct sockaddr_in address, struct timeval *send_timestamp) {
-	uint8_t packet[ECHO_REQUEST_PACKET_SIZE];
+int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp) {
 	ssize_t status;
 
-	create_icmp_packet(packet, ECHO_REQUEST_PACKET_SIZE);
+	ping_data->packet = calloc(1, ping_data->packet_size);
+	if (ping_data->packet == NULL) {
+		perror("echo_request: calloc");
+		return -1;
+	}
+	create_icmp_packet(ping_data);
 	gettimeofday(send_timestamp, NULL);
-	status = sendto(socket_fd, packet, ECHO_REQUEST_PACKET_SIZE, 0, (struct sockaddr *)&address, sizeof(address));
-	if (status != ECHO_REQUEST_PACKET_SIZE) {
+	status = sendto(
+		ping_data->socket_fd,
+		ping_data->packet,
+		ping_data->packet_size,
+		0,
+		(struct sockaddr *)&ping_data->address,
+		sizeof(ping_data->address)
+	);
+	if (status != (ssize_t)ping_data->packet_size) {
 		perror("echo_request: sendto");
 		return -1;
 	}
 	return 0;
 }
 
-int32_t echo_response(int32_t socket_fd, struct sockaddr_in address, struct timeval *recv_timestamp) {
-	uint8_t packet[ECHO_RESPONSE_PACKET_SIZE];
+/**
+ * @return On success 0 is returned. On error, -1 is returned and errno is set.
+ */
+int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp) {
 	ssize_t status;
-	socklen_t address_len = sizeof(address);
+	socklen_t address_len = sizeof(ping_data->address);
 
-	status = recvfrom(socket_fd, packet, ECHO_RESPONSE_PACKET_SIZE, 0, (struct sockaddr *)&address, &address_len);
+	ping_data->packet = malloc(ping_data->packet_size + sizeof(struct iphdr));
+	if (ping_data->packet == NULL) {
+		perror("echo_response: malloc");
+		return -1;
+	}
+	status = recvfrom(
+		ping_data->socket_fd,
+		ping_data->packet,
+		ping_data->packet_size + sizeof(struct iphdr),
+		0,
+		(struct sockaddr *)&ping_data->address,
+		&address_len
+	);
 	gettimeofday(recv_timestamp, NULL);
-	if (status != ECHO_RESPONSE_PACKET_SIZE) {
-		//TODO: perror
+	if (status != (ssize_t)(ping_data->packet_size + sizeof(struct iphdr))) {
+		free(ping_data->packet);
+		perror("echo_response: recvfrom");
 		return -1;
 	}
 	return 0;

@@ -3,8 +3,6 @@
 
 #include <stdbool.h>
 
-#include "ping.h"
-
 typedef struct {
 	bool verbose;
 	char *destination;
