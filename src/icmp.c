@@ -3,7 +3,6 @@
 #include "icmp.h"
 
 static struct icmphdr create_icmp_header(ping_data_t *ping_data);
-static uint16_t icmp_checksum(void* packet, size_t len);
 
 void create_icmp_packet(ping_data_t *ping_data) {
 	struct icmphdr *header;
@@ -22,7 +21,7 @@ static struct icmphdr create_icmp_header(ping_data_t *ping_data) {
 	return header;
 }
 
-static uint16_t icmp_checksum(void* packet, size_t len) {
+uint16_t icmp_checksum(void* packet, size_t len) {
 	uint32_t sum;
 	uint16_t *buffer = packet;
 

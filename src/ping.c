@@ -11,26 +11,9 @@
 #include "print.h"
 #include "time.h"
 
-int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
-int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp);
-
-/**
- * @return On success 0 is returned. On error, -1 is returned.
- */
-int32_t ping(ping_data_t *ping_data) {
-	struct timeval send_timestamp;
-	struct timeval recv_timestamp;
-
-	print_ping_info(ping_data);
-	if (echo_request(ping_data, &send_timestamp) == -1) {
-		return -1;
-	}
-	if (echo_response(ping_data, &recv_timestamp) == -1) {
-		return -1;
-	}
-	print_ping_status(ping_data, elapsed_time(send_timestamp, recv_timestamp));
-	return 0;
-}
+static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
+static int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp);
+static int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header);
 
 /**
  * @return On success 0 is returned. On error, -1 is returned.
@@ -48,6 +31,30 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 		return -1;
 	}
 	return 0;
+}
+
+/**
+ * @return On success 0 is returned. On error, -1 is returned.
+ */
+int32_t ping(ping_data_t *ping_data) {
+	struct timeval	send_timestamp;
+	struct timeval	recv_timestamp;
+	struct iphdr	response_ip_header;
+
+	print_ping_info(ping_data);
+	while (1) {
+		if (echo_request(ping_data, &send_timestamp) == -1) {
+			return -1;
+		}
+		if (echo_response(ping_data, &recv_timestamp) == -1) {
+			return -1;
+		}
+		if (process_response(ping_data, &response_ip_header) == -1) {
+			return -1;
+		}
+		print_ping_status(ping_data, response_ip_header.ttl, elapsed_time(send_timestamp, recv_timestamp));
+		ping_data->sequence++;
+	}
 }
 
 /**
@@ -104,5 +111,21 @@ int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp) {
 		perror("echo_response: recvfrom");
 		return -1;
 	}
+	return 0;
+}
+
+int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header) {
+	struct icmphdr	*icmp_header;
+	uint16_t		checksum;
+
+	*ip_header = *(struct iphdr *)ping_data->packet;
+	icmp_header = (struct icmphdr *)(ping_data->packet + sizeof(struct iphdr));
+	checksum = icmp_header->checksum;
+	icmp_header->checksum = 0;
+	if (checksum != icmp_checksum(ping_data->packet + sizeof(struct iphdr), ping_data->packet_size)) {
+		dprintf(STDERR_FILENO, "Invalid checksum in response.\n");
+		return -1;
+	}
+	free(ping_data->packet);
 	return 0;
 }

@@ -13,10 +13,10 @@ void print_ping_info(ping_data_t *ping_data) {
 		   ping_data->packet_size + sizeof(struct iphdr));
 }
 
-void print_ping_status(ping_data_t *ping_data, struct timeval elapsed) {
+void print_ping_status(ping_data_t *ping_data, uint8_t ttl, struct timeval elapsed) {
 	printf("%zu bytes ", ping_data->packet_size);
 	printf("from %s (%s): ", "", inet_ntoa(ping_data->address.sin_addr));
 	printf("icmp_seq=%hu ", ping_data->sequence);
-	printf("ttl=%d ", 0);
+	printf("ttl=%d ", ttl);
 	printf("time=%.1f ms\n", tv_to_ms(elapsed));
 }

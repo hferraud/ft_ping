@@ -44,8 +44,6 @@ int32_t set_socket_timeout(int32_t socket_fd, uint32_t sec, uint32_t usec) {
 	return 0;
 }
 
-#include <stdio.h>
-
 /**
  * @return On success 0 is returned. On error -1 is returned if no addresses are found,
  * a status code is returned otherwise.
