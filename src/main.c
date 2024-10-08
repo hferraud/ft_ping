@@ -9,7 +9,11 @@ int main(int argc, char** argv) {
 	ping_data_t ping_data;
 
 	args = parse(argc, argv);
-	init_ping(&args, &ping_data);
-	ping(&ping_data);
+	if (init_ping(&args, &ping_data) == -1) {
+		return -1;
+	}
+	if (ping(&ping_data) == -1) {
+		return -1;
+	}
 	return 0;
 }
