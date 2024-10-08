@@ -19,6 +19,8 @@ SRC_FILES	=		main.c			\
 					icmp.c			\
 					print.c			\
 					time.c			\
+					rtt.c			\
+
 
 #---------- BUILD ----------#
 
@@ -28,7 +30,7 @@ DEPS		=		$(addprefix $(BUILD_DIR), $(SRC:.c=.d))
 
 #---------- COMPILATION ----------#
 
-C_FLAGS		=		-Wall -Werror -Wextra -g3
+C_FLAGS		=		-Wall -Werror -Wextra
 
 I_FLAGS		=		-I$(INC_DIR)
 
@@ -73,7 +75,7 @@ leak:				$(TEST)
 -include			$(DEPS)
 
 $(NAME):			$(OBJ)
-					$(CC) $(OBJ) -o $@
+					$(CC) $(OBJ) -lm -o $@
 
 #---------- OBJECTS FILES ----------#
 

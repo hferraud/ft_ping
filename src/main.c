@@ -1,8 +1,8 @@
 #include "parser.h"
 #include "socket.h"
-#include "errno.h"
+#include "rtt.h"
 
-#include <stdio.h>
+rtt_t rtt_g = {0};
 
 int main(int argc, char** argv) {
 	command_args_t args;

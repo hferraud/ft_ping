@@ -10,6 +10,9 @@
 #include "socket.h"
 #include "print.h"
 #include "time.h"
+#include "rtt.h"
+
+extern rtt_t rtt_g;
 
 static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
 static int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp);
@@ -54,6 +57,7 @@ int32_t ping(ping_data_t *ping_data) {
 			return -1;
 		}
 		travel_time = elapsed_time(send_timestamp, recv_timestamp);
+		update_rtt(recv_timestamp, tv_to_ms(travel_time));
 		if (print_ping_status(ping_data, response_ip_header.ttl, travel_time) == -1) {
 			return -1;
 		}
@@ -62,10 +66,14 @@ int32_t ping(ping_data_t *ping_data) {
 	}
 }
 
+void exit_ping() {
+
+}
+
 /**
  * @return On success 0 is returned. On error, -1 is returned and errno is set.
  */
-int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp) {
+static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp) {
 	ssize_t status;
 
 	ping_data->packet = calloc(1, ping_data->packet_size);
@@ -87,13 +95,14 @@ int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp) {
 		perror("echo_request: sendto");
 		return -1;
 	}
+	rtt_g.transmitted += 1;
 	return 0;
 }
 
 /**
  * @return On success 0 is returned. On error, -1 is returned and errno is set.
  */
-int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp) {
+static int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp) {
 	ssize_t status;
 	socklen_t address_len = sizeof(ping_data->address);
 
@@ -122,7 +131,7 @@ int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp) {
 /**
  * @return On success 0 is returned. If the checksum is invalid -1 is returned.
  */
-int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header) {
+static int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header) {
 	struct icmphdr	*icmp_header;
 	uint16_t		checksum;
 
