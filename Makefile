@@ -17,6 +17,8 @@ SRC_FILES	=		main.c			\
 					socket.c		\
 					ping.c			\
 					icmp.c			\
+					print.c			\
+					time.c			\
 
 #---------- BUILD ----------#
 

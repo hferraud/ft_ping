@@ -8,6 +8,8 @@
 #include "ping.h"
 #include "parser.h"
 #include "socket.h"
+#include "print.h"
+#include "time.h"
 
 int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
 int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp);
@@ -19,12 +21,14 @@ int32_t ping(ping_data_t *ping_data) {
 	struct timeval send_timestamp;
 	struct timeval recv_timestamp;
 
+	print_ping_info(ping_data);
 	if (echo_request(ping_data, &send_timestamp) == -1) {
 		return -1;
 	}
 	if (echo_response(ping_data, &recv_timestamp) == -1) {
 		return -1;
 	}
+	print_ping_status(ping_data, elapsed_time(send_timestamp, recv_timestamp));
 	return 0;
 }
 

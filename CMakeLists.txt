@@ -13,4 +13,7 @@ add_executable(ping
         src/socket.c
         include/icmp.h
         src/icmp.c
-        src/ping.c)
+        src/ping.c
+        src/print.c
+        src/time.c
+        include/time.h)
