@@ -33,6 +33,8 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 	if (ping_data->socket_fd == -1) {
 		return -1;
 	}
+	rtt_g.socket_fd = ping_data->socket_fd;
+	gettimeofday(&rtt_g.start, NULL);
 	return 0;
 }
 
@@ -64,10 +66,6 @@ int32_t ping(ping_data_t *ping_data) {
 		sleep_ping_delay(travel_time);
 		ping_data->sequence++;
 	}
-}
-
-void exit_ping() {
-
 }
 
 /**

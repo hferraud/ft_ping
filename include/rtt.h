@@ -9,7 +9,7 @@
 typedef struct rtt_s {
 	struct timeval	start;
 	struct timeval	last;
-	ping_data_t		*ping_data;
+	int32_t			socket_fd;
 	size_t			transmitted;
 	size_t			received;
 	float			sum;

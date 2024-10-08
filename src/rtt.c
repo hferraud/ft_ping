@@ -24,7 +24,7 @@ void print_rtt() {
 	printf("%zu packets transmitted, ", rtt_g.transmitted);
 	printf("%zu packets received, ", rtt_g.received);
 	printf("%zu%% packets lost, ", (1 - rtt_g.received / rtt_g.transmitted) * 100);
-	printf("time %zu\n", (size_t)tv_to_ms(elapsed_time(rtt_g.start, rtt_g.last)));
+	printf("time %zu ms\n", (size_t)tv_to_ms(elapsed_time(rtt_g.start, rtt_g.last)));
 	printf("rtt min/avg/max/mdev = ");
 	printf("%.3f/", rtt_g.min);
 	printf("%.3f/", rtt_g.sum / (float)rtt_g.received);
