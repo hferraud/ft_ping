@@ -39,6 +39,7 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 int32_t ping(ping_data_t *ping_data) {
 	struct timeval	send_timestamp;
 	struct timeval	recv_timestamp;
+	struct timeval	travel_time;
 	struct iphdr	response_ip_header;
 
 	print_ping_info(ping_data);
@@ -52,7 +53,9 @@ int32_t ping(ping_data_t *ping_data) {
 		if (process_response(ping_data, &response_ip_header) == -1) {
 			return -1;
 		}
-		print_ping_status(ping_data, response_ip_header.ttl, elapsed_time(send_timestamp, recv_timestamp));
+		travel_time = elapsed_time(send_timestamp, recv_timestamp);
+		print_ping_status(ping_data, response_ip_header.ttl, travel_time);
+		sleep_ping_delay(travel_time);
 		ping_data->sequence++;
 	}
 }
@@ -114,6 +117,9 @@ int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp) {
 	return 0;
 }
 
+/**
+ * @return On success 0 is returned. If the checksum is invalid -1 is returned.
+ */
 int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header) {
 	struct icmphdr	*icmp_header;
 	uint16_t		checksum;

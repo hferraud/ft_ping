@@ -18,5 +18,5 @@ void print_ping_status(ping_data_t *ping_data, uint8_t ttl, struct timeval elaps
 	printf("from %s (%s): ", "", inet_ntoa(ping_data->address.sin_addr));
 	printf("icmp_seq=%hu ", ping_data->sequence);
 	printf("ttl=%d ", ttl);
-	printf("time=%.1f ms\n", tv_to_ms(elapsed));
+	printf("time=%.3f ms\n", tv_to_ms(elapsed));
 }
