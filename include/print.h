@@ -6,6 +6,6 @@
 #include "ping.h"
 
 void print_ping_info(ping_data_t *ping_data);
-void print_ping_status(ping_data_t *ping_data, uint8_t ttl, struct timeval elapsed);
+int32_t print_ping_status(ping_data_t *ping_data, uint8_t ttl, struct timeval elapsed);
 
 #endif

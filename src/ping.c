@@ -20,7 +20,7 @@ static int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header)
  */
 int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 	ping_data->packet_size = DEFAULT_PACKET_SIZE + sizeof(struct icmphdr);
-	ping_data->sequence = 0;
+	ping_data->sequence = 1;
 	ping_data->pid = getpid();
 	ping_data->type = ICMP_ECHO;
 	if (dns_lookup(args->destination, &ping_data->address) != 0) {
@@ -54,7 +54,9 @@ int32_t ping(ping_data_t *ping_data) {
 			return -1;
 		}
 		travel_time = elapsed_time(send_timestamp, recv_timestamp);
-		print_ping_status(ping_data, response_ip_header.ttl, travel_time);
+		if (print_ping_status(ping_data, response_ip_header.ttl, travel_time) == -1) {
+			return -1;
+		}
 		sleep_ping_delay(travel_time);
 		ping_data->sequence++;
 	}

@@ -68,3 +68,17 @@ int32_t dns_lookup(char* hostname, struct sockaddr_in *address) {
 	freeaddrinfo(res);
 	return 0;
 }
+
+/**
+ * @return On success 0 is returned. On error, a non-zero status code is returned.
+ */
+int32_t reverse_dns_lookup(struct sockaddr_in *address, char *host, size_t len) {
+	int32_t	status;
+	status = getnameinfo((struct sockaddr *)address, sizeof(*address), host, len, NULL, 0, 0);
+	if (status != 0) {
+		dprintf(STDERR_FILENO, "reverse_dns_lookup: getnameinfo: %s", gai_strerror(status));
+		return status;
+	}
+	return 0;
+}
+

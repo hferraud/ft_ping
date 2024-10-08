@@ -9,5 +9,6 @@
 
 int32_t	init_icmp_socket();
 int32_t dns_lookup(char* hostname, struct sockaddr_in *address);
+int32_t reverse_dns_lookup(struct sockaddr_in *address, char *host, size_t len);
 
 #endif
