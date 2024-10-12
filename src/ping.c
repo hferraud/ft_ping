@@ -23,7 +23,7 @@ static int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header)
  */
 int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 	ping_data->packet_size = DEFAULT_PACKET_SIZE + sizeof(struct icmphdr);
-	ping_data->sequence = 1;
+	ping_data->sequence = 0;
 	ping_data->pid = getpid();
 	ping_data->type = ICMP_ECHO;
 	if (dns_lookup(args->destination, &ping_data->address) != 0) {
@@ -34,21 +34,19 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 		return -1;
 	}
 	rtt_g.socket_fd = ping_data->socket_fd;
-	gettimeofday(&rtt_g.start, NULL);
-	rtt_g.last = rtt_g.start;
 	return 0;
 }
 
 /**
  * @return On success 0 is returned. On error, -1 is returned.
  */
-int32_t ping(ping_data_t *ping_data) {
+int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 	struct timeval	send_timestamp;
 	struct timeval	recv_timestamp;
 	struct timeval	travel_time;
 	struct iphdr	response_ip_header;
 
-	print_ping_info(ping_data);
+	print_ping_info(args, ping_data);
 	while (1) {
 		if (echo_request(ping_data, &send_timestamp) == -1) {
 			return -1;
@@ -61,11 +59,8 @@ int32_t ping(ping_data_t *ping_data) {
 		}
 		travel_time = elapsed_time(send_timestamp, recv_timestamp);
 		update_rtt(tv_to_ms(travel_time));
-		if (print_ping_status(ping_data, response_ip_header.ttl, travel_time) == -1) {
-			return -1;
-		}
+		print_ping_status(ping_data, response_ip_header.ttl, travel_time);
 		sleep_ping_delay(travel_time);
-		gettimeofday(&rtt_g.last, NULL);
 		ping_data->sequence++;
 	}
 }

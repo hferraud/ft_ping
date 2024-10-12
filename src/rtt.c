@@ -18,19 +18,18 @@ void update_rtt(float travel_time) {
 	rtt_g.squared_sum += travel_time * travel_time;
 }
 
-void print_rtt() {
-	printf("--- ping statistics ---\n");
-	printf("%zu packets transmitted, ", rtt_g.transmitted);
-	printf("%zu received, ", rtt_g.received);
-	printf("%zu%% packets lost, ", (1 - rtt_g.received / rtt_g.transmitted) * 100);
-	printf("time %zu ms\n", (size_t)tv_to_ms(elapsed_time(rtt_g.start, rtt_g.last)));
+float get_rtt_avg() {
 	if (rtt_g.received == 0) {
-		return;
+		return 0;
 	}
-	printf("rtt min/avg/max/mdev = ");
-	printf("%.3f/", rtt_g.min);
-	printf("%.3f/", rtt_g.sum / (float)rtt_g.received);
-	printf("%.3f/", rtt_g.max);
-	printf("%.3f ms\n", sqrtf((rtt_g.squared_sum / (float)rtt_g.received) -
-		(rtt_g.sum / (float)rtt_g.received) * (rtt_g.sum / (float)rtt_g.received)));
+	return rtt_g.sum / rtt_g.received;
+}
+
+float get_rtt_stddev() {
+	if (rtt_g.received == 0) {
+		return 0;
+	}
+	float mean = get_rtt_avg();
+	float variance = rtt_g.squared_sum / rtt_g.received - mean * mean;
+	return sqrtf(variance);
 }

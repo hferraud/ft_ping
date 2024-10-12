@@ -7,8 +7,6 @@
 #include "ping.h"
 
 typedef struct rtt_s {
-	struct timeval	start;
-	struct timeval	last;
 	int32_t			socket_fd;
 	size_t			transmitted;
 	size_t			received;
@@ -19,6 +17,7 @@ typedef struct rtt_s {
 } rtt_t;
 
 void update_rtt(float travel_time);
-void print_rtt();
+float get_rtt_avg();
+float get_rtt_stddev();
 
 #endif

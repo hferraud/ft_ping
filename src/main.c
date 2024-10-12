@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "parser.h"
-#include "socket.h"
+#include "print.h"
 #include "rtt.h"
 
 void sigint_handler(int signal);
@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 	if (init_ping(&args, &ping_data) == -1) {
 		return -1;
 	}
-	if (ping(&ping_data) == -1) {
+	if (ping(&args, &ping_data) == -1) {
 		return -1;
 	}
 	return 0;

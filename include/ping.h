@@ -16,7 +16,7 @@ typedef struct ping_data_s {
 	uint8_t				type;
 } ping_data_t;
 
-int32_t ping(ping_data_t *ping_data);
+int32_t ping(command_args_t *args, ping_data_t *ping_data);
 int32_t init_ping(command_args_t *args, ping_data_t *ping_data);
 
 #endif

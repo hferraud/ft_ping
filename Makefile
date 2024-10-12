@@ -65,7 +65,7 @@ docker_build:
 					docker build -t ping .
 
 .PHONY:				docker_run
-docker_run:		
+docker_run:
 					docker run --rm -it -v ./ft_ping:/ft_ping -it ping
 
 #---------- RUN ----------#
