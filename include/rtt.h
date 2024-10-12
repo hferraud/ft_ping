@@ -18,7 +18,7 @@ typedef struct rtt_s {
 	float			max;
 } rtt_t;
 
-void update_rtt(struct timeval recv_time, float travel_time);
+void update_rtt(float travel_time);
 void print_rtt();
 
 #endif

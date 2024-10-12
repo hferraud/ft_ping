@@ -35,6 +35,7 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 	}
 	rtt_g.socket_fd = ping_data->socket_fd;
 	gettimeofday(&rtt_g.start, NULL);
+	rtt_g.last = rtt_g.start;
 	return 0;
 }
 
@@ -59,11 +60,12 @@ int32_t ping(ping_data_t *ping_data) {
 			return -1;
 		}
 		travel_time = elapsed_time(send_timestamp, recv_timestamp);
-		update_rtt(recv_timestamp, tv_to_ms(travel_time));
+		update_rtt(tv_to_ms(travel_time));
 		if (print_ping_status(ping_data, response_ip_header.ttl, travel_time) == -1) {
 			return -1;
 		}
 		sleep_ping_delay(travel_time);
+		gettimeofday(&rtt_g.last, NULL);
 		ping_data->sequence++;
 	}
 }
