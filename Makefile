@@ -60,23 +60,15 @@ fclean:				clean
 re:					fclean
 					$(MAKE)
 
+#---------- DOCKER ----------#
+
 .PHONY:				docker_build
-docker_build:
+docker_build:		$(NAME)
 					docker build -t ping .
 
 .PHONY:				docker_run
-docker_run:
+docker_run:			$(NAME)
 					docker run --rm -it -v ./ft_ping:/ft_ping -it ping
-
-#---------- RUN ----------#
-
-.PHONY:				run
-run:				$(TEST)
-					./$(TEST)
-
-.PHONY:				leak
-leak:				$(TEST)
-					valgrind --leak-check=full ./$(TEST)
 
 #---------- EXECUTABLES ----------#
 
