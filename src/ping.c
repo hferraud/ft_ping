@@ -16,7 +16,7 @@ extern rtt_t rtt_g;
 
 static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
 static int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timestamp);
-static int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header);
+static int32_t process_response(ping_data_t *ping_data, struct icmphdr *icmp_header, struct iphdr *ip_header);
 
 /**
  * @return On success 0 is returned. On error, -1 is returned.
@@ -45,6 +45,7 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 	struct timeval	send_timestamp;
 	struct timeval	recv_timestamp;
 	struct timeval	travel_time;
+	struct icmphdr	response_icmp_header;
 	struct iphdr	response_ip_header;
 
 	print_ping_info(args, ping_data);
@@ -52,12 +53,14 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 		if (echo_request(ping_data, &send_timestamp) == -1) {
 			return -1;
 		}
-		if (echo_response(ping_data, &recv_timestamp) == -1) {
-			return -1;
-		}
-		if (process_response(ping_data, &response_ip_header) == -1) {
-			return -1;
-		}
+		do {
+			if (echo_response(ping_data, &recv_timestamp) == -1) {
+				return -1;
+			}
+			if (process_response(ping_data, &response_icmp_header, &response_ip_header) == -1) {
+				return -1;
+			}
+		} while (response_icmp_header.un.echo.id != ping_data->pid);
 		travel_time = elapsed_time(send_timestamp, recv_timestamp);
 		update_rtt(tv_to_ms(travel_time));
 		print_ping_status(ping_data, response_ip_header.ttl, travel_time);
@@ -127,15 +130,19 @@ static int32_t echo_response(ping_data_t *ping_data, struct timeval *recv_timest
 /**
  * @return On success 0 is returned. If the checksum is invalid -1 is returned.
  */
-static int32_t process_response(ping_data_t *ping_data, struct iphdr *ip_header) {
-	struct icmphdr	*icmp_header;
+static int32_t process_response(ping_data_t *ping_data, struct icmphdr *icmp_header, struct iphdr *ip_header) {
 	uint16_t		checksum;
 
 	*ip_header = *(struct iphdr *)ping_data->packet;
-	icmp_header = (struct icmphdr *)(ping_data->packet + sizeof(struct iphdr));
+	*icmp_header = *(struct icmphdr *)(ping_data->packet + sizeof(struct iphdr));
 	checksum = icmp_header->checksum;
 	icmp_header->checksum = 0;
-	if (checksum != icmp_checksum(ping_data->packet + sizeof(struct iphdr), ping_data->packet_size)) {
+	if (icmp_header->un.echo.id != ping_data->pid) {
+		free(ping_data->packet);
+		return 0;
+	}
+	if (checksum != icmp_checksum(icmp_header, sizeof(icmp_header))) {
+		free(ping_data->packet);
 		dprintf(STDERR_FILENO, "Invalid checksum in response.\n");
 		return -1;
 	}
