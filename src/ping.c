@@ -33,6 +33,7 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 	if (ping_data->socket_fd == -1) {
 		return -1;
 	}
+	rtt_g.destination = args->destination;
 	rtt_g.socket_fd = ping_data->socket_fd;
 	return 0;
 }

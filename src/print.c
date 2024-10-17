@@ -24,10 +24,10 @@ void print_ping_status(ping_data_t *ping_data, uint8_t ttl, struct timeval elaps
 }
 
 void print_rtt() {
-	printf("--- ping statistics ---\n");
+	printf("--- %s ping statistics ---\n", rtt_g.destination);
 	printf("%zu packets transmitted, ", rtt_g.transmitted);
 	printf("%zu packets received, ", rtt_g.received);
-	printf("%zu%% packets lost\n", (1 - rtt_g.received / rtt_g.transmitted) * 100);
+	printf("%zu%% packet loss\n", (1 - rtt_g.received / rtt_g.transmitted) * 100);
 	if (rtt_g.received == 0) {
 		return;
 	}

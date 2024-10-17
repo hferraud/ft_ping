@@ -7,9 +7,10 @@
 #include "ping.h"
 
 typedef struct rtt_s {
-	int32_t			socket_fd;
+	char			*destination;
 	size_t			transmitted;
 	size_t			received;
+	int32_t			socket_fd;
 	float			sum;
 	float			squared_sum;
 	float			min;
