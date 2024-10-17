@@ -16,12 +16,12 @@ int main(int argc, char** argv) {
 
 	args = parse(argc, argv);
 	if (init_ping(&args, &ping_data) == -1) {
-		return -1;
+		return EXIT_FAILURE;
 	}
 	if (ping(&args, &ping_data) == -1) {
-		return -1;
+		return EXIT_FAILURE;
 	}
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 void sigint_handler(int signal) {

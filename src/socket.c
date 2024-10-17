@@ -56,12 +56,8 @@ int32_t dns_lookup(char* hostname, struct sockaddr_in *address) {
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_RAW;
 	status = getaddrinfo(hostname, NULL, &hints, &res);
-	if (status != 0) {
-		dprintf(STDERR_FILENO, "dns_lookup: getaddrinfo: %s", gai_strerror(status));
-		return status;
-	}
-	if (res == NULL) {
-		dprintf(STDERR_FILENO, "dns_lookup: getaddrinfo: No address found");
+	if (status != 0 || res == NULL) {
+		dprintf(STDERR_FILENO, "ping: unknown host\n");
 		return -1;
 	}
 	*address = *(struct sockaddr_in *)res->ai_addr;
