@@ -51,6 +51,7 @@ int32_t set_sockopt_timeout(int32_t socket_fd, uint32_t sec, uint32_t usec) {
 
 int32_t set_sockopt_broadcast(int32_t socket_fd) {
 	uint32_t optval = 1;
+	setsockopt(socket_fd, SOL_SOCKET, SO_DEBUG, &optval, sizeof(optval));
 	if (setsockopt(socket_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) == -1) {
 		perror("set_sockopt_broadcast: setsockopt");
 		return -1;
@@ -86,7 +87,7 @@ int32_t reverse_dns_lookup(struct sockaddr_in *address, char *host, size_t len) 
 	int32_t	status;
 	status = getnameinfo((struct sockaddr *)address, sizeof(*address), host, len, NULL, 0, 0);
 	if (status != 0) {
-		dprintf(STDERR_FILENO, "reverse_dns_lookup: getnameinfo: %s", gai_strerror(status));
+		dprintf(STDERR_FILENO, "reverse_dns_lookup: getnameinfo: %s\n", gai_strerror(status));
 		return status;
 	}
 	return 0;
