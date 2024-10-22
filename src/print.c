@@ -46,11 +46,11 @@ void print_ping_info(command_args_t *args, ping_data_t *ping_data) {
 }
 
 int32_t print_ping_status(ping_data_t *ping_data, ping_response_t *ping_response) {
-	if (ping_response->code != ICMP_ECHOREPLY) {
+	if (ping_response->type != ICMP_ECHOREPLY) {
 		return print_icmp_description(ping_data, ping_response);
 	}
-	printf("%zu bytes ", ping_data->packet_size);
-	printf("from %s: ", inet_ntoa(ping_data->address.sin_addr));
+	printf("%zu bytes ", ping_response->packet_size);
+	printf("from %s: ", inet_ntoa(ping_response->address.sin_addr));
 	printf("icmp_seq=%hu ", ping_data->sequence);
 	printf("ttl=%d ", ping_response->ttl);
 	printf("time=%.3f ms\n", tv_to_ms(ping_response->trip_time));
@@ -76,13 +76,16 @@ static int32_t print_icmp_description(ping_data_t *ping_data, ping_response_t *p
 	char host[INET_ADDRSTRLEN];
 	int32_t status;
 
-	status = reverse_dns_lookup(&ping_data->address, host, INET_ADDRSTRLEN);
-	if (status != 0) {
-		return -1;
+	status = getnameinfo((struct sockaddr *)&ping_response->address, sizeof(ping_response->address), host, INET_ADDRSTRLEN, NULL, 0, 0);
+	for (size_t i = ping_data->nb_pending + 1; i != 0; i--) {
+		printf("%zu bytes ", ping_response->packet_size);
+		if (status == 0) {
+			printf("from %s (%s): ", host, inet_ntoa(ping_response->address.sin_addr));
+		} else {
+			printf("from %s: ", inet_ntoa(ping_response->address.sin_addr));
+		}
+		printf("%s\n", get_icmp_description(ping_response->type, ping_response->code));
 	}
-	printf("%zu bytes ", ping_data->packet_size);
-	printf("from %s (%s): ", host, inet_ntoa(ping_data->address.sin_addr));
-	printf("%s\n", get_icmp_description(ping_response->type, ping_response->code));
 	return 0;
 }
 

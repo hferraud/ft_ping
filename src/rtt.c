@@ -1,21 +1,28 @@
 #include <stdio.h>
 #include <math.h>
+#include <netinet/ip_icmp.h>
 
 #include "rtt.h"
 #include "time.h"
 
 extern rtt_t rtt_g;
 
-void update_rtt(float travel_time) {
+void update_rtt(ping_response_t *ping_response) {
+	float trip_time;
+
+	if (ping_response->type != ICMP_ECHOREPLY) {
+		return;
+	}
+	trip_time = tv_to_ms(ping_response->trip_time);
 	rtt_g.received += 1;
-	if (rtt_g.min == 0 || travel_time < rtt_g.min) {
-		rtt_g.min = travel_time;
+	if (rtt_g.min == 0 || trip_time < rtt_g.min) {
+		rtt_g.min = trip_time;
 	}
-	if (rtt_g.max == 0 || travel_time > rtt_g.max) {
-		rtt_g.max = travel_time;
+	if (rtt_g.max == 0 || trip_time > rtt_g.max) {
+		rtt_g.max = trip_time;
 	}
-	rtt_g.sum += travel_time;
-	rtt_g.squared_sum += travel_time * travel_time;
+	rtt_g.sum += trip_time;
+	rtt_g.squared_sum += trip_time * trip_time;
 }
 
 float get_rtt_avg() {
