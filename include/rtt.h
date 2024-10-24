@@ -17,7 +17,7 @@ typedef struct rtt_s {
 	float			max;
 } rtt_t;
 
-void update_rtt(float travel_time);
+void update_rtt(ping_response_t *ping_response);
 float get_rtt_avg();
 float get_rtt_stddev();
 
