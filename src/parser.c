@@ -1,47 +1,46 @@
 #include <string.h>
+#include <getopt.h>
 
 #include "parser.h"
 
-static void	demux(char const *, command_args_t*);
-static void	parse_option(char const *, command_args_t*);
-void parse_verbose(char const*, command_args_t*);
-static void parse_destination(char const *, command_args_t*);
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-command_args_t parse(int argc, char** argv) {
-	command_args_t config = {0};
+int parse(int argc, char** argv, command_args_t* cmd_args) {
+	struct option long_options[] = {
+		{"verbose", no_argument, &cmd_args->verbose, 1},
+		{"count", required_argument, 0, 'c'},
+		{0, 0, 0, 0,}
+	};
+	int option_index = 0;
+	int option;
 
-	for (int i = 1; i < argc; ++i) {
-		demux(argv[i], &config);
-	}
-	return config;
-}
-
-void demux(char const * arg, command_args_t* config) {
-	if (*arg == '-') {
-		parse_option(arg, config);
-	} else {
-		parse_destination(arg, config);
-	}
-}
-
-void parse_option(char const *arg, command_args_t* config) {
-	char const		name[] = {'v', 0};
-	parse_fct_t f[] = {parse_verbose};
-
-	size_t i = 0;
-	while (name[i]) {
-		if (name[i] == arg[1]) {
-			f[i](arg, config);
+	do {
+		option = getopt_long(argc, argv, "vc:", long_options, &option_index);
+		if (option == -1) {
+			break;
 		}
-		++i;
+		switch (option) {
+			case 0:
+				break;
+			case 'v':
+				printf("Option %s\n", long_options[option_index].name);
+				cmd_args->verbose = 1;
+				break;
+			case 'c':
+				printf("Option -c with value %s\n", optarg);
+				cmd_args->count = atoi(optarg);
+				break;
+			default:
+				dprintf(STDERR_FILENO, "Unrecognized option\n");
+				return -1;
+		}
+	} while (option != -1);
+	if (optind >= argc) {
+		dprintf(STDERR_FILENO, "ping: missing host operand\n");
+		dprintf(STDERR_FILENO, "Try 'ping --help' or 'ping --usage' for more information\n");
 	}
-}
-
-void parse_verbose(char const* arg, command_args_t* config) {
-	(void)arg;
-	config->verbose = true;
-}
-
-void parse_destination(char const *arg, command_args_t* config) {
-	config->destination = strdup(arg);
+	cmd_args->destination = argv[optind];
+	return 0;
 }
