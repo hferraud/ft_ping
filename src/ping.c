@@ -57,6 +57,9 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 		}
 		do {
 			if (echo_response(ping_data, &ping_response, &recv_timestamp) == -1) {
+				if (errno == EAGAIN) {
+					continue;
+				}
 				return -1;
 			}
 			if (process_response(ping_data, &ping_response) == -1) {
@@ -65,8 +68,8 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 		} while (ping_response.id != ping_data->pid);
 		ping_response.trip_time = elapsed_time(send_timestamp, recv_timestamp);
 		update_rtt(&ping_response);
-		if (print_ping_status(ping_data, &ping_response) != 0)
-			return -1;
+		print_ping_status(ping_data, &ping_response, args);
+		free(ping_data->packet);
 		sleep_ping_delay(ping_response.trip_time);
 		ping_data->nb_pending = 0;
 		ping_data->sequence++;
@@ -168,6 +171,5 @@ static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_re
 		return -1;
 	}
 	ping_response->ttl = ip_header->ttl;
-	free(ping_data->packet);
 	return 0;
 }
