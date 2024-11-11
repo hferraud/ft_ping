@@ -48,7 +48,7 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
 int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 	struct timeval	send_timestamp;
 	struct timeval	recv_timestamp;
-	ping_response_t ping_response;
+	ping_response_t ping_response = {0};
 
 	print_ping_info(args, ping_data);
 	while (1) {
@@ -58,7 +58,8 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 		do {
 			if (echo_response(ping_data, &ping_response, &recv_timestamp) == -1) {
 				if (errno == EAGAIN) {
-					continue;
+					printf("EAGAIN continue\n");
+					break;
 				}
 				return -1;
 			}
@@ -66,6 +67,9 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 				return -1;
 			}
 		} while (ping_response.id != ping_data->pid);
+		if (errno == EAGAIN) {
+			continue;
+		}
 		ping_response.trip_time = elapsed_time(send_timestamp, recv_timestamp);
 		update_rtt(&ping_response);
 		print_ping_status(ping_data, &ping_response, args);
@@ -97,6 +101,7 @@ static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timesta
 			(struct sockaddr *)&ping_data->address,
 			sizeof(ping_data->address)
 	);
+	free(ping_data->packet);
 	if (status < 0) {
 		perror("echo_request: sendto");
 		return -1;
@@ -116,21 +121,21 @@ static int32_t echo_response(ping_data_t *ping_data, ping_response_t *ping_respo
 		perror("echo_response: malloc");
 		return -1;
 	}
-	do {
-		errno = 0;
-		status = recvfrom(
-				ping_data->socket_fd,
-				ping_data->packet,
-				ping_data->packet_size + RESPONSE_OFFSET,
-				0,
-				(struct sockaddr *)&ping_response->address,
-				&address_len
-		);
-		if (errno == EAGAIN) {
-			rtt_g.transmitted++;
-			ping_data->nb_pending++;
-		}
-	} while (errno == EAGAIN);
+	errno = 0;
+	status = recvfrom(
+			ping_data->socket_fd,
+			ping_data->packet,
+			ping_data->packet_size + RESPONSE_OFFSET,
+			0,
+			(struct sockaddr *)&ping_response->address,
+			&address_len
+	);
+	printf("status: %zu\n", status);
+	printf("errno: %d\n\n", errno);
+	if (errno == EAGAIN) {
+		free(ping_data->packet);
+		return -1;
+	}
 	gettimeofday(recv_timestamp, NULL);
 	rtt_g.transmitted++;
 	if (status < 0) {
@@ -158,8 +163,8 @@ static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_re
 		icmp_header = (struct icmphdr *)(ping_data->packet + sizeof(struct iphdr)
 				+ sizeof(struct icmphdr) + sizeof(struct iphdr));
 	}
-	ping_response->id = icmp_header->un.echo.id;
-	if (icmp_header->un.echo.id != ping_data->pid) {
+	ping_response->id = ntohs(icmp_header->un.echo.id);
+	if (ping_response->id != ping_data->pid) {
 		free(ping_data->packet);
 		return 0;
 	}
