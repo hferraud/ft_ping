@@ -10,10 +10,12 @@ void sigint_handler(int signal);
 rtt_t rtt_g = {0};
 
 int main(int argc, char** argv) {
-	command_args_t args;
+	command_args_t args = {0};
 	ping_data_t ping_data = {0};
 
-	args = parse(argc, argv);
+	if (parse(argc, argv, &args)) {
+		return EXIT_FAILURE;
+	}
 	if (init_ping(&args, &ping_data) == -1) {
 		return EXIT_FAILURE;
 	}

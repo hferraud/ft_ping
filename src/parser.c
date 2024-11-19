@@ -1,47 +1,50 @@
-#include <string.h>
+#include <stdlib.h>
+#include <argp.h>
 
 #include "parser.h"
 
-static void	demux(char const *, command_args_t*);
-static void	parse_option(char const *, command_args_t*);
-void parse_verbose(char const*, command_args_t*);
-static void parse_destination(char const *, command_args_t*);
+static error_t parse_opt(int key, char* arg, struct argp_state *state);
 
-command_args_t parse(int argc, char** argv) {
-	command_args_t config = {0};
+int parse(int argc, char** argv, command_args_t* cmd_args) {
+	const struct argp_option argp_options[] = {
+			{"count", 'c', "NUMBER", 0, "stop after sending NUMBER packets", 0},
+			{"verbose", 'v', NULL, 0, "verbose output", 0},
+			{0},
+	};
+	const char args_doc[] = "HOST ...";
+	const char doc[] = "Send ICMP ECHO_REQUEST packets to network hosts."
+					   "\vOptions marked with (root only) are available only to "
+					   "superuser.";
+	struct argp argp = {
+			argp_options,
+			parse_opt,
+			args_doc,
+			doc,
+			NULL,
+			NULL,
+			NULL,
+	};
+	argp_parse(&argp, argc, argv, 0, NULL, cmd_args);
+	return 0;
+}
 
-	for (int i = 1; i < argc; ++i) {
-		demux(argv[i], &config);
+static error_t parse_opt(int key, char* arg, struct argp_state *state) {
+	command_args_t *cmd_args = (command_args_t *)state->input;
+	switch (key) {
+		case 'c':
+			cmd_args->count = atoll(arg);
+			break;
+		case 'v':
+			cmd_args->verbose = 1;
+			break;
+		case ARGP_KEY_ARG:
+			cmd_args->destination = arg;
+			break;
+		case ARGP_KEY_NO_ARGS:
+			argp_error(state, "missing host operand");
+			break;
+		default:
+			return ARGP_ERR_UNKNOWN;
 	}
-	return config;
-}
-
-void demux(char const * arg, command_args_t* config) {
-	if (*arg == '-') {
-		parse_option(arg, config);
-	} else {
-		parse_destination(arg, config);
-	}
-}
-
-void parse_option(char const *arg, command_args_t* config) {
-	char const		name[] = {'v', 0};
-	parse_fct_t f[] = {parse_verbose};
-
-	size_t i = 0;
-	while (name[i]) {
-		if (name[i] == arg[1]) {
-			f[i](arg, config);
-		}
-		++i;
-	}
-}
-
-void parse_verbose(char const* arg, command_args_t* config) {
-	(void)arg;
-	config->verbose = true;
-}
-
-void parse_destination(char const *arg, command_args_t* config) {
-	config->destination = strdup(arg);
+	return 0;
 }

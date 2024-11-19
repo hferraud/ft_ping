@@ -19,3 +19,5 @@ add_executable(ping
         include/time.h
         include/rtt.h
         src/rtt.c)
+
+target_link_libraries(ping m)

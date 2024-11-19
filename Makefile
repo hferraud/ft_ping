@@ -63,12 +63,12 @@ re:					fclean
 #---------- DOCKER ----------#
 
 .PHONY:				docker_build
-docker_build:		$(NAME)
+docker_build:
 					docker build -t ping .
 
 .PHONY:				docker_run
-docker_run:			$(NAME)
-					docker run --rm -it -v ./ft_ping:/ft_ping -it ping
+docker_run:
+					docker run --rm -it -v .:/ft_ping -it ping
 
 #---------- EXECUTABLES ----------#
 

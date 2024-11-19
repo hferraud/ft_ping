@@ -16,8 +16,8 @@ static struct icmphdr create_icmp_header(ping_data_t *ping_data) {
 	struct icmphdr header = {0};
 
 	header.type = ping_data->type;
-	header.un.echo.id = ping_data->pid;
-	header.un.echo.sequence = ping_data->sequence;
+	header.un.echo.id = htons(ping_data->pid);
+	header.un.echo.sequence = htons(ping_data->sequence);
 	return header;
 }
 
