@@ -1,46 +1,50 @@
-#include <string.h>
-#include <getopt.h>
+#include <stdlib.h>
+#include <argp.h>
 
 #include "parser.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+static error_t parse_opt(int key, char* arg, struct argp_state *state);
 
 int parse(int argc, char** argv, command_args_t* cmd_args) {
-	struct option long_options[] = {
-		{"verbose", no_argument, &cmd_args->verbose, 1},
-		{"count", required_argument, 0, 'c'},
-		{0, 0, 0, 0,}
+	const struct argp_option argp_options[] = {
+			{"count", 'c', "NUMBER", 0, "stop after sending NUMBER packets", 0},
+			{"verbose", 'v', NULL, 0, "verbose output", 0},
+			{0},
 	};
-	int option_index = 0;
-	int option;
+	const char args_doc[] = "HOST ...";
+	const char doc[] = "Send ICMP ECHO_REQUEST packets to network hosts."
+					   "\vOptions marked with (root only) are available only to "
+					   "superuser.";
+	struct argp argp = {
+			argp_options,
+			parse_opt,
+			args_doc,
+			doc,
+			NULL,
+			NULL,
+			NULL,
+	};
+	argp_parse(&argp, argc, argv, 0, NULL, cmd_args);
+	return 0;
+}
 
-	do {
-		option = getopt_long(argc, argv, "vc:", long_options, &option_index);
-		if (option == -1) {
+static error_t parse_opt(int key, char* arg, struct argp_state *state) {
+	command_args_t *cmd_args = (command_args_t *)state->input;
+	switch (key) {
+		case 'c':
+			cmd_args->count = atoll(arg);
 			break;
-		}
-		switch (option) {
-			case 0:
-				break;
-			case 'v':
-				printf("Option %s\n", long_options[option_index].name);
-				cmd_args->verbose = 1;
-				break;
-			case 'c':
-				printf("Option -c with value %s\n", optarg);
-				cmd_args->count = atoi(optarg);
-				break;
-			default:
-				dprintf(STDERR_FILENO, "Unrecognized option\n");
-				return -1;
-		}
-	} while (option != -1);
-	if (optind >= argc) {
-		dprintf(STDERR_FILENO, "ping: missing host operand\n");
-		dprintf(STDERR_FILENO, "Try 'ping --help' or 'ping --usage' for more information\n");
+		case 'v':
+			cmd_args->verbose = 1;
+			break;
+		case ARGP_KEY_ARG:
+			cmd_args->destination = arg;
+			break;
+		case ARGP_KEY_NO_ARGS:
+			argp_error(state, "missing host operand");
+			break;
+		default:
+			return ARGP_ERR_UNKNOWN;
 	}
-	cmd_args->destination = argv[optind];
 	return 0;
 }
