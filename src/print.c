@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
-#include <sys/time.h>
 
 #include "ping.h"
 #include "time.h"
 #include "socket.h"
 #include "rtt.h"
 
-static void print_verbose(ping_data_t *ping_data);
+static void print_ip_data(const ping_data_t *ping_data);
+static void print_ip_header(struct ip *ip);
 static char *get_icmp_description(int type, int code);
 static void print_icmp_description(ping_data_t *ping_data, ping_response_t *ping_response, command_args_t *args);
 
@@ -61,50 +61,64 @@ void print_ping_status(ping_data_t *ping_data, ping_response_t *ping_response, c
 	printf("time=%.3f ms\n", tv_to_ms(ping_response->trip_time));
 }
 
-static void print_verbose(ping_data_t *ping_data) {
-	size_t hlen;
+static void print_ip_data(const ping_data_t *ping_data) {
+	int hlen;
 	unsigned char *cp;
+	struct ip *ip;
 
-	struct ip *ip = (struct ip *)(ping_data->packet + sizeof(struct iphdr) + sizeof(struct icmphdr));
+	ip = (struct ip *)(ping_data->packet + sizeof(struct iphdr) + sizeof(struct icmphdr));
+	print_ip_header(ip);
+
 	hlen = ip->ip_hl << 2;
-	cp = (unsigned char *)ip + sizeof(*ip);
+	cp = (unsigned char *)ip + hlen;
 
-	printf("IP Hdr Dump:\n ");
-	for (size_t j = 0; j < sizeof (*ip); ++j) {
-		printf("%02x%s", *((unsigned char *) ip + j), (j % 2) ? " " : "");
-	}
-	printf("\n");
-
-	printf("Vr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
-	printf(" %1x  %1x  %02x", ip->ip_v, ip->ip_hl, ip->ip_tos);
-	printf(" %04x %04x", ip->ip_len > 0x2000 ?
-		ntohs(ip->ip_len) : ip->ip_len, ntohs(ip->ip_id));
-	printf("   %1x %04x",
-		(ntohs(ip->ip_off) & 0xe000) >> 13, ntohs(ip->ip_off) & 0x1fff);
-	printf("  %02x  %02x %04x", ip->ip_ttl, ip->ip_p, ntohs(ip->ip_sum));
-	printf(" %s ", inet_ntoa(ip->ip_src));
-	printf(" %s ", inet_ntoa(ip->ip_dst));
-	while (hlen-- > sizeof (*ip)) {
-		printf ("%02x", *cp++);
-	}
-	printf("\n");
 	if (ip->ip_p == IPPROTO_TCP)
-		printf ("TCP: from port %u, to port %u (decimal)\n",
-			(*cp * 256 + *(cp + 1)), (*(cp + 2) * 256 + *(cp + 3)));
+		printf("TCP: from port %u, to port %u (decimal)\n", (*cp * 256 + *(cp + 1)),
+			   (*(cp + 2) * 256 + *(cp + 3)));
 	else if (ip->ip_p == IPPROTO_UDP)
-		printf ("UDP: from port %u, to port %u (decimal)\n",
-			(*cp * 256 + *(cp + 1)), (*(cp + 2) * 256 + *(cp + 3)));
+		printf("UDP: from port %u, to port %u (decimal)\n", (*cp * 256 + *(cp + 1)),
+			   (*(cp + 2) * 256 + *(cp + 3)));
 	else if (ip->ip_p == IPPROTO_ICMP) {
 		int type = *cp;
 		int code = *(cp + 1);
 
-		printf ("ICMP: type %u, code %u, size %u", type, code,
-			ntohs (ip->ip_len) - (int)hlen);
+		printf("ICMP: type %u, code %u, size %u", type, code,
+			   ntohs(ip->ip_len) - hlen);
 		if (type == ICMP_ECHOREPLY || type == ICMP_ECHO)
-			printf (", id 0x%04x, seq 0x%04x", *(cp + 4) * 256 + *(cp + 5),
-				*(cp + 6) * 256 + *(cp + 7));
-		printf ("\n");
+			printf(", id 0x%04x, seq 0x%04x", *(cp + 4) * 256 + *(cp + 5),
+				   *(cp + 6) * 256 + *(cp + 7));
+		printf("\n");
 	}
+}
+
+static void print_ip_header(struct ip *ip) {
+	size_t hlen;
+	unsigned char *cp;
+
+	hlen = ip->ip_hl << 2;
+	cp = (unsigned char *)ip + sizeof(*ip);
+
+	size_t j;
+
+	printf("IP Hdr Dump:\n ");
+	for (j = 0; j < sizeof(*ip); ++j)
+		printf("%02x%s", *((unsigned char *)ip + j),
+			   (j % 2) ? " " : "");
+	printf("\n");
+
+	printf("Vr HL TOS  Len   ID Flg  off TTL Pro  cks      Src\tDst\tData\n");
+	printf(" %1x  %1x  %02x", ip->ip_v, ip->ip_hl, ip->ip_tos);
+	printf(" %04x %04x", (ip->ip_len > 0x2000) ? ntohs(ip->ip_len) : ip->ip_len,
+		   ntohs(ip->ip_id));
+	printf("   %1x %04x", (ntohs(ip->ip_off) & 0xe000) >> 13,
+		   ntohs(ip->ip_off) & 0x1fff);
+	printf("  %02x  %02x %04x", ip->ip_ttl, ip->ip_p, ntohs(ip->ip_sum));
+	printf(" %s ", inet_ntoa(*((struct in_addr *)&ip->ip_src)));
+	printf(" %s ", inet_ntoa(*((struct in_addr *)&ip->ip_dst)));
+	while (hlen-- > sizeof(*ip))
+		printf("%02x", *cp++);
+
+	printf("\n");
 }
 
 void print_rtt() {
@@ -135,7 +149,7 @@ static void print_icmp_description(ping_data_t *ping_data, ping_response_t *ping
 	}
 	printf("%s\n", get_icmp_description(ping_response->type, ping_response->code));
 	if (args->verbose) {
-		print_verbose(ping_data);
+		print_ip_data(ping_data);
 	}
 }
 

@@ -24,4 +24,8 @@ void normalize_timeval(struct timeval *tv) {
 	    tv->tv_usec -= 1000000;
 	    tv->tv_sec++;
 	}
+	if (tv->tv_sec < 0) {
+		tv->tv_sec = 0;
+		tv->tv_usec = 0;
+	}
 }

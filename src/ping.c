@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <netinet/ip_icmp.h>
 #include <sys/time.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
 #include <error.h>
@@ -14,7 +13,6 @@
 #include "print.h"
 #include "time.h"
 #include "rtt.h"
-
 
 #define DEFAULT_PACKET_SIZE 56
 #define RESPONSE_OFFSET (sizeof(struct iphdr) + sizeof(struct icmphdr) + sizeof(struct iphdr))
@@ -70,7 +68,6 @@ int32_t ping(command_args_t *args, ping_data_t *ping_data) {
 static void ping_send(ping_data_t *ping_data) {
 	ssize_t status;
 
-	printf("Sending...\n");
 	ping_data->packet = malloc(ping_data->packet_size);
 	if (ping_data->packet == NULL) {
 		error(EXIT_FAILURE, errno, "malloc failed");
@@ -110,18 +107,15 @@ static void ping_recv(ping_data_t *ping_data, ping_response_t *ping_response) {
 			(struct sockaddr *)&ping_response->address,
 			&address_len
 	);
-	printf("status: %lu\n", status);
 	gettimeofday(&ping_response->recv_timestamp, NULL);
 	if (status < 0) {
 		free(ping_data->packet);
 		error(EXIT_FAILURE, errno, "recvfrom failed");
 	}
-	rtt_g.received++;
 	ping_response->packet_size = status - sizeof(struct iphdr);
 }
 
 /**
- *
  * @return 0 when the fd can be read, -1 when the select timed out
  */
 static int32_t ping_select(ping_data_t *ping_data) {
@@ -141,19 +135,16 @@ static int32_t ping_select(ping_data_t *ping_data) {
 		+ 0 - now.tv_usec;
 	normalize_timeval(&timeout);
 	status = select(fd_max, &fdset, NULL, NULL, &timeout);
-	printf("status: %d\n", status);
 	if (status < 0) {
 		error(EXIT_FAILURE, errno, "select failed");
 	} else if (status == 1) {
-		printf("here2\n");
 		return 0;
 	}
-	printf("here\n");
 	return -1;
 }
 
 /**
- * @return On success 0 is returned. If the checksum is invalid -1 is returned.
+ * @return On success 0 is returned. If the response is invalid -1 is returned.
  */
 static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_response) {
 	struct iphdr	*ip_header;
@@ -164,9 +155,9 @@ static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_re
 	icmp_header = (struct icmphdr *)(ping_data->packet + sizeof(struct iphdr));
 	checksum = icmp_header->checksum;
 	icmp_header->checksum = 0;
-	if (checksum != icmp_checksum(icmp_header, sizeof(icmp_header))) {
+	if (checksum != icmp_checksum(icmp_header, ping_response->packet_size)) {
 		error(0, 0, "checksum mismatch from %s",
-			inet_ntoa(ping_response->address.sin_addr));
+			  inet_ntoa(ping_response->address.sin_addr));
 		return -1;
 	}
 	ping_response->code = icmp_header->code;
