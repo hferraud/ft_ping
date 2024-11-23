@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <error.h>
+#include <arpa/inet.h>
 
 #include "icmp.h"
 #include "ping.h"
@@ -13,13 +15,15 @@
 #include "time.h"
 #include "rtt.h"
 
+
 #define DEFAULT_PACKET_SIZE 56
 #define RESPONSE_OFFSET (sizeof(struct iphdr) + sizeof(struct icmphdr) + sizeof(struct iphdr))
 
 extern rtt_t rtt_g;
 
-static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp);
-static int32_t echo_response(ping_data_t *ping_data, ping_response_t *ping_response, struct timeval *recv_timestamp);
+static void ping_send(ping_data_t *ping_data);
+static void ping_recv(ping_data_t *ping_data, ping_response_t *ping_response);
+static int32_t ping_select(ping_data_t *ping_data);
 static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_response);
 
 /**
@@ -46,53 +50,33 @@ int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
  * @return On success 0 is returned. On error, -1 is returned.
  */
 int32_t ping(command_args_t *args, ping_data_t *ping_data) {
-	struct timeval	send_timestamp;
-	struct timeval	recv_timestamp;
 	ping_response_t ping_response = {0};
 
 	print_ping_info(args, ping_data);
+	ping_send(ping_data);
 	while (1) {
-		if (echo_request(ping_data, &send_timestamp) == -1) {
-			return -1;
-		}
-		do {
-			if (echo_response(ping_data, &ping_response, &recv_timestamp) == -1) {
-				if (errno == EAGAIN) {
-					printf("EAGAIN continue\n");
-					break;
-				}
-				return -1;
-			}
-			if (process_response(ping_data, &ping_response) == -1) {
-				return -1;
-			}
-		} while (ping_response.id != ping_data->pid);
-		if (errno == EAGAIN) {
+		if (ping_select(ping_data) == -1) {
+			ping_send(ping_data);
 			continue;
 		}
-		ping_response.trip_time = elapsed_time(send_timestamp, recv_timestamp);
-		update_rtt(&ping_response);
-		print_ping_status(ping_data, &ping_response, args);
+		ping_recv(ping_data, &ping_response);
+		if (process_response(ping_data, &ping_response) == 0) {
+			print_ping_status(ping_data, &ping_response, args);
+		}
 		free(ping_data->packet);
-		sleep_ping_delay(ping_response.trip_time);
-		ping_data->nb_pending = 0;
-		ping_data->sequence++;
 	}
 }
 
-/**
- * @return On success 0 is returned. On error, -1 is returned and errno is set.
- */
-static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timestamp) {
+static void ping_send(ping_data_t *ping_data) {
 	ssize_t status;
 
-	ping_data->packet = calloc(1, ping_data->packet_size);
+	printf("Sending...\n");
+	ping_data->packet = malloc(ping_data->packet_size);
 	if (ping_data->packet == NULL) {
-		perror("echo_request: calloc");
-		return -1;
+		error(EXIT_FAILURE, errno, "malloc failed");
 	}
 	create_icmp_packet(ping_data);
-	gettimeofday(send_timestamp, NULL);
+	gettimeofday(&ping_data->send_timestamp, NULL);
 	status = sendto(
 			ping_data->socket_fd,
 			ping_data->packet,
@@ -103,23 +87,19 @@ static int32_t echo_request(ping_data_t *ping_data, struct timeval *send_timesta
 	);
 	free(ping_data->packet);
 	if (status < 0) {
-		perror("echo_request: sendto");
-		return -1;
+		error(EXIT_FAILURE, errno, "sending packet");
 	}
-	return 0;
+	ping_data->sequence++;
+	rtt_g.transmitted++;
 }
 
-/**
- * @return On success 0 is returned. On error, -1 is returned and errno is set.
- */
-static int32_t echo_response(ping_data_t *ping_data, ping_response_t *ping_response, struct timeval *recv_timestamp) {
+static void ping_recv(ping_data_t *ping_data, ping_response_t *ping_response) {
 	ssize_t status;
 	socklen_t address_len = sizeof(ping_response->address);
 
 	ping_data->packet = malloc(ping_data->packet_size + RESPONSE_OFFSET);
 	if (ping_data->packet == NULL) {
-		perror("echo_response: malloc");
-		return -1;
+		error(EXIT_FAILURE, errno, "malloc failed");
 	}
 	errno = 0;
 	status = recvfrom(
@@ -130,21 +110,46 @@ static int32_t echo_response(ping_data_t *ping_data, ping_response_t *ping_respo
 			(struct sockaddr *)&ping_response->address,
 			&address_len
 	);
-	printf("status: %zu\n", status);
-	printf("errno: %d\n\n", errno);
-	if (errno == EAGAIN) {
-		free(ping_data->packet);
-		return -1;
-	}
-	gettimeofday(recv_timestamp, NULL);
-	rtt_g.transmitted++;
+	printf("status: %lu\n", status);
+	gettimeofday(&ping_response->recv_timestamp, NULL);
 	if (status < 0) {
 		free(ping_data->packet);
-		perror("echo_response: recvfrom");
-		return -1;
+		error(EXIT_FAILURE, errno, "recvfrom failed");
 	}
+	rtt_g.received++;
 	ping_response->packet_size = status - sizeof(struct iphdr);
-	return 0;
+}
+
+/**
+ *
+ * @return 0 when the fd can be read, -1 when the select timed out
+ */
+static int32_t ping_select(ping_data_t *ping_data) {
+	fd_set			fdset;
+	int32_t			fd_max;
+	int32_t			status;
+	struct timeval	timeout;
+	struct timeval	now;
+
+	FD_ZERO(&fdset);
+	FD_SET(ping_data->socket_fd, &fdset);
+	fd_max = ping_data->socket_fd + 1;
+	gettimeofday(&now, NULL);
+	timeout.tv_sec = ping_data->send_timestamp.tv_sec
+		+ 1 - now.tv_sec;
+	timeout.tv_usec = ping_data->send_timestamp.tv_usec
+		+ 0 - now.tv_usec;
+	normalize_timeval(&timeout);
+	status = select(fd_max, &fdset, NULL, NULL, &timeout);
+	printf("status: %d\n", status);
+	if (status < 0) {
+		error(EXIT_FAILURE, errno, "select failed");
+	} else if (status == 1) {
+		printf("here2\n");
+		return 0;
+	}
+	printf("here\n");
+	return -1;
 }
 
 /**
@@ -157,6 +162,13 @@ static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_re
 
 	ip_header = (struct iphdr *)ping_data->packet;
 	icmp_header = (struct icmphdr *)(ping_data->packet + sizeof(struct iphdr));
+	checksum = icmp_header->checksum;
+	icmp_header->checksum = 0;
+	if (checksum != icmp_checksum(icmp_header, sizeof(icmp_header))) {
+		error(0, 0, "checksum mismatch from %s",
+			inet_ntoa(ping_response->address.sin_addr));
+		return -1;
+	}
 	ping_response->code = icmp_header->code;
 	ping_response->type = icmp_header->type;
 	if (icmp_header->type != ICMP_ECHOREPLY) {
@@ -165,16 +177,10 @@ static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_re
 	}
 	ping_response->id = ntohs(icmp_header->un.echo.id);
 	if (ping_response->id != ping_data->pid) {
-		free(ping_data->packet);
-		return 0;
-	}
-	checksum = icmp_header->checksum;
-	icmp_header->checksum = 0;
-	if (checksum != icmp_checksum(icmp_header, sizeof(icmp_header))) {
-		free(ping_data->packet);
-		dprintf(STDERR_FILENO, "Invalid checksum in response.\n");
 		return -1;
 	}
 	ping_response->ttl = ip_header->ttl;
+	ping_response->trip_time = elapsed_time(ping_data->send_timestamp, ping_response->recv_timestamp);
+	update_rtt(ping_response);
 	return 0;
 }

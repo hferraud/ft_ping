@@ -1,15 +1,13 @@
 #include <sys/time.h>
-#include <unistd.h>
+
+#include "time.h"
 
 struct timeval elapsed_time(struct timeval start, struct timeval end) {
 	struct timeval elapsed;
 
 	elapsed.tv_sec = end.tv_sec - start.tv_sec;
 	elapsed.tv_usec = end.tv_usec - start.tv_usec;
-	if (elapsed.tv_usec < 0) {
-		elapsed.tv_sec -= 1;
-		elapsed.tv_usec += 1000000;
-	}
+	normalize_timeval(&elapsed);
 	return elapsed;
 }
 
@@ -17,12 +15,13 @@ float tv_to_ms(struct timeval tv) {
 	return tv.tv_sec * 1000. + tv.tv_usec / 1000.;
 }
 
-void sleep_ping_delay(struct timeval travel_time) {
-	struct timeval delay = {0};
-	if (travel_time.tv_sec >= 1) {
-		return;
+void normalize_timeval(struct timeval *tv) {
+	while (tv->tv_usec < 0) {
+	    tv->tv_usec += 1000000;
+	    tv->tv_sec--;
 	}
-	delay.tv_usec = 1000000 - travel_time.tv_usec;
-	sleep(delay.tv_sec);
-	usleep(delay.tv_usec);
+	while (tv->tv_usec >= 1000000) {
+	    tv->tv_usec -= 1000000;
+	    tv->tv_sec++;
+	}
 }
