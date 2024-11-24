@@ -8,6 +8,9 @@
 
 #include "icmp.h"
 #include "ping.h"
+
+#include <stdio.h>
+
 #include "parser.h"
 #include "socket.h"
 #include "print.h"
@@ -24,44 +27,37 @@ static void ping_recv(ping_data_t *ping_data, ping_response_t *ping_response);
 static int32_t ping_select(ping_data_t *ping_data);
 static int32_t process_response(ping_data_t *ping_data, ping_response_t *ping_response);
 
-/**
- * @return On success 0 is returned. On error, -1 is returned.
- */
-int32_t init_ping(command_args_t *args, ping_data_t *ping_data) {
-	ping_data->packet_size = DEFAULT_PACKET_SIZE + sizeof(struct icmphdr);
+void init_ping(ping_data_t *ping_data) {
+	ping_data->packet_size = ping_data->cmd_args.size + sizeof(struct icmphdr);
 	ping_data->sequence = 0;
 	ping_data->pid = getpid();
 	ping_data->type = ICMP_ECHO;
-	if (dns_lookup(args->destination, &ping_data->address) != 0) {
-		return -1;
-	}
-	ping_data->socket_fd = init_icmp_socket();
-	if (ping_data->socket_fd == -1) {
-		return -1;
-	}
-	rtt_g.destination = args->destination;
+	dns_lookup(ping_data->cmd_args.destination, &ping_data->address);
+	ping_data->socket_fd = init_icmp_socket(&ping_data->cmd_args);
+	rtt_g.destination = ping_data->cmd_args.destination;
 	rtt_g.socket_fd = ping_data->socket_fd;
-	return 0;
 }
 
-/**
- * @return On success 0 is returned. On error, -1 is returned.
- */
-int32_t ping(command_args_t *args, ping_data_t *ping_data) {
+void ping(ping_data_t *ping_data) {
 	ping_response_t ping_response = {0};
+	size_t n_resp = 0;
 
-	print_ping_info(args, ping_data);
+	print_ping_info(ping_data);
 	ping_send(ping_data);
 	while (1) {
 		if (ping_select(ping_data) == -1) {
 			ping_send(ping_data);
-			continue;
+		} else {
+			ping_recv(ping_data, &ping_response);
+			if (process_response(ping_data, &ping_response) == 0) {
+				print_ping_status(ping_data, &ping_response);
+				n_resp++;
+			}
+			free(ping_data->packet);
 		}
-		ping_recv(ping_data, &ping_response);
-		if (process_response(ping_data, &ping_response) == 0) {
-			print_ping_status(ping_data, &ping_response, args);
+		if (ping_data->cmd_args.count != 0 && n_resp >= ping_data->cmd_args.count) {
+			return;
 		}
-		free(ping_data->packet);
 	}
 }
 
@@ -98,7 +94,6 @@ static void ping_recv(ping_data_t *ping_data, ping_response_t *ping_response) {
 	if (ping_data->packet == NULL) {
 		error(EXIT_FAILURE, errno, "malloc failed");
 	}
-	errno = 0;
 	status = recvfrom(
 			ping_data->socket_fd,
 			ping_data->packet,
@@ -130,9 +125,9 @@ static int32_t ping_select(ping_data_t *ping_data) {
 	fd_max = ping_data->socket_fd + 1;
 	gettimeofday(&now, NULL);
 	timeout.tv_sec = ping_data->send_timestamp.tv_sec
-		+ 1 - now.tv_sec;
+		+ ping_data->cmd_args.interval.tv_sec - now.tv_sec;
 	timeout.tv_usec = ping_data->send_timestamp.tv_usec
-		+ 0 - now.tv_usec;
+		+ ping_data->cmd_args.interval.tv_usec - now.tv_usec;
 	normalize_timeval(&timeout);
 	status = select(fd_max, &fdset, NULL, NULL, &timeout);
 	if (status < 0) {

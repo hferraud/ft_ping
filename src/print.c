@@ -1,20 +1,21 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
+#include <netdb.h>
 
 #include "ping.h"
 #include "time.h"
-#include "socket.h"
 #include "rtt.h"
 
+static void print_icmp_description(const ping_data_t *ping_data, ping_response_t *ping_response);
 static void print_ip_data(const ping_data_t *ping_data);
 static void print_ip_header(struct ip *ip);
 static char *get_icmp_description(int type, int code);
-static void print_icmp_description(ping_data_t *ping_data, ping_response_t *ping_response, command_args_t *args);
 
 extern rtt_t rtt_g;
 
 #define NITEMS(p) sizeof(p)/sizeof((p)[0])
+#define HOST_BUF_LEN 256
 
 typedef struct icmp_code_description_s {
 	int type;
@@ -41,24 +42,56 @@ icmp_code_description_t icmp_code_description[] = {
 	{ICMP_TIME_EXCEEDED, ICMP_EXC_TTL, "Time to live exceeded"},
 	{ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, "Frag reassembly time exceeded"}};
 
-void print_ping_info(command_args_t *args, ping_data_t *ping_data) {
-	printf("PING %s (%s): ", args->destination, inet_ntoa(ping_data->address.sin_addr));
+void print_ping_info(const ping_data_t *ping_data) {
+	printf("PING %s (%s): ", ping_data->cmd_args.destination, inet_ntoa(ping_data->address.sin_addr));
 	printf("%zu data bytes", ping_data->packet_size - sizeof(struct icmphdr));
-	if (args->verbose) {
+	if (ping_data->cmd_args.verbose) {
 		printf (", id 0x%04x = %u", ping_data->pid, ping_data->pid);
 	}
 	printf("\n");
 }
 
-void print_ping_status(ping_data_t *ping_data, ping_response_t *ping_response, command_args_t *args) {
+void print_ping_status(ping_data_t *ping_data, ping_response_t *ping_response) {
 	if (ping_response->type != ICMP_ECHOREPLY) {
-		return print_icmp_description(ping_data, ping_response, args);
+		return print_icmp_description(ping_data, ping_response);
 	}
 	printf("%zu bytes ", ping_response->packet_size);
 	printf("from %s: ", inet_ntoa(ping_response->address.sin_addr));
 	printf("icmp_seq=%hu ", ping_data->sequence);
 	printf("ttl=%d ", ping_response->ttl);
 	printf("time=%.3f ms\n", tv_to_ms(ping_response->trip_time));
+}
+
+void print_rtt() {
+	printf("--- %s ping statistics ---\n", rtt_g.destination);
+	printf("%zu packets transmitted, ", rtt_g.transmitted);
+	printf("%zu packets received, ", rtt_g.received);
+	printf("%zu%% packet loss\n", (1 - rtt_g.received / rtt_g.transmitted) * 100);
+	if (rtt_g.received == 0) {
+		return;
+	}
+	printf("round-trip min/avg/max/stddev = ");
+	printf("%.3f/", rtt_g.min);
+	printf("%.3f/", get_rtt_avg());
+	printf("%.3f/", rtt_g.max);
+	printf("%.3f ms\n", get_rtt_stddev());
+}
+
+static void print_icmp_description(const ping_data_t *ping_data, ping_response_t *ping_response) {
+	char host[HOST_BUF_LEN];
+	int32_t status;
+
+	status = getnameinfo((struct sockaddr *)&ping_response->address, sizeof(ping_response->address), host, HOST_BUF_LEN, NULL, 0, 0);
+	printf("%zu bytes ", ping_response->packet_size);
+	if (!ping_data->cmd_args.numeric && status == 0) {
+		printf("from %s (%s): ", host, inet_ntoa(ping_response->address.sin_addr));
+	} else {
+		printf("from %s: ", inet_ntoa(ping_response->address.sin_addr));
+	}
+	printf("%s\n", get_icmp_description(ping_response->type, ping_response->code));
+	if (ping_data->cmd_args.verbose) {
+		print_ip_data(ping_data);
+	}
 }
 
 static void print_ip_data(const ping_data_t *ping_data) {
@@ -119,38 +152,6 @@ static void print_ip_header(struct ip *ip) {
 		printf("%02x", *cp++);
 
 	printf("\n");
-}
-
-void print_rtt() {
-	printf("--- %s ping statistics ---\n", rtt_g.destination);
-	printf("%zu packets transmitted, ", rtt_g.transmitted);
-	printf("%zu packets received, ", rtt_g.received);
-	printf("%zu%% packet loss\n", (1 - rtt_g.received / rtt_g.transmitted) * 100);
-	if (rtt_g.received == 0) {
-		return;
-	}
-	printf("round-trip min/avg/max/stddev = ");
-	printf("%.3f/", rtt_g.min);
-	printf("%.3f/", get_rtt_avg());
-	printf("%.3f/", rtt_g.max);
-	printf("%.3f ms\n", get_rtt_stddev());
-}
-
-static void print_icmp_description(ping_data_t *ping_data, ping_response_t *ping_response, command_args_t *args) {
-	char host[INET_ADDRSTRLEN];
-	int32_t status;
-
-	status = getnameinfo((struct sockaddr *)&ping_response->address, sizeof(ping_response->address), host, INET_ADDRSTRLEN, NULL, 0, 0);
-	printf("%zu bytes ", ping_response->packet_size);
-	if (status == 0) {
-		printf("from %s (%s): ", host, inet_ntoa(ping_response->address.sin_addr));
-	} else {
-		printf("from %s: ", inet_ntoa(ping_response->address.sin_addr));
-	}
-	printf("%s\n", get_icmp_description(ping_response->type, ping_response->code));
-	if (args->verbose) {
-		print_ip_data(ping_data);
-	}
 }
 
 static char *get_icmp_description(int type, int code) {
