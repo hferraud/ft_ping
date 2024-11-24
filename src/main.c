@@ -1,35 +1,39 @@
 #include <signal.h>
 #include <stdlib.h>
+#include <error.h>
+#include <errno.h>
 
 #include "parser.h"
 #include "print.h"
 #include "rtt.h"
 
 void sigint_handler(int signal);
+void at_exit(void);
 
 rtt_t rtt_g = {0};
 
 int main(int argc, char** argv) {
-	command_args_t args = {0};
 	ping_data_t ping_data = {0};
 
-	if (parse(argc, argv, &args)) {
-		return EXIT_FAILURE;
-	}
-	if (init_ping(&args, &ping_data) == -1) {
-		return EXIT_FAILURE;
-	}
-	signal(SIGINT, sigint_handler);
-	if (ping(&args, &ping_data) == -1) {
+	parse(argc, argv, &ping_data.cmd_args);
+	init_ping(&ping_data);
+	if (atexit(at_exit) == -1) {
 		close(ping_data.socket_fd);
-		return EXIT_FAILURE;
+		error(EXIT_FAILURE, 0, "atexit()");
 	}
+	if (signal(SIGINT, sigint_handler) == SIG_ERR) {
+		error(EXIT_FAILURE, 0, "signal()");
+	}
+	ping(&ping_data);
 	return EXIT_SUCCESS;
 }
 
 void sigint_handler(int signal) {
 	(void)signal;
+	exit(errno);
+}
+
+void at_exit(void) {
 	print_rtt();
 	close(rtt_g.socket_fd);
-	exit(0);
 }

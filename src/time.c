@@ -1,6 +1,9 @@
 #include <sys/time.h>
+#include <math.h>
 
 #include "time.h"
+
+#include <stdio.h>
 
 struct timeval elapsed_time(struct timeval start, struct timeval end) {
 	struct timeval elapsed;
@@ -13,6 +16,14 @@ struct timeval elapsed_time(struct timeval start, struct timeval end) {
 
 float tv_to_ms(struct timeval tv) {
 	return tv.tv_sec * 1000. + tv.tv_usec / 1000.;
+}
+
+struct timeval sec_to_tv(const double seconds) {
+	struct timeval tv;
+
+	tv.tv_sec = (long)seconds;
+	tv.tv_usec = (long)((seconds - tv.tv_sec) * 1000000);
+	return tv;
 }
 
 void normalize_timeval(struct timeval *tv) {
