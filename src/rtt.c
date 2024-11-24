@@ -13,8 +13,8 @@ void update_rtt(ping_response_t *ping_response) {
 	if (ping_response->type != ICMP_ECHOREPLY) {
 		return;
 	}
+	rtt_g.received++;
 	trip_time = tv_to_ms(ping_response->trip_time);
-	rtt_g.received += 1;
 	if (rtt_g.min == 0 || trip_time < rtt_g.min) {
 		rtt_g.min = trip_time;
 	}

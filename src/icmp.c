@@ -22,16 +22,22 @@ static struct icmphdr create_icmp_header(ping_data_t *ping_data) {
 }
 
 uint16_t icmp_checksum(void* packet, size_t len) {
-	uint32_t sum;
-	uint16_t *buffer = packet;
+	u_int16_t* buffer;
+	u_int32_t sum;
 
-	for (sum = 0; len > 1; len -= 2) {
-		sum += *buffer++;
+	sum = 0;
+	buffer = (uint16_t*)packet;
+	while (len > 1) {
+		sum += *buffer;
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+		++buffer;
+		len -= 2;
 	}
 	if (len == 1) {
-		sum += *(uint8_t *)packet;
+		sum += *(u_int8_t*) buffer;
 	}
 	sum = (sum >> 16) + (sum & 0xFFFF);
-	sum += (sum >> 16);
-	return ~sum;
+	return (u_int16_t) ~sum;
 }

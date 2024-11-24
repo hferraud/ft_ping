@@ -8,9 +8,10 @@
 
 typedef struct ping_data_s {
 	struct sockaddr_in	address;
+	struct timeval		send_timestamp;
+	command_args_t		*cmd_args;
 	uint8_t				*packet;
 	size_t				packet_size;
-	size_t				nb_pending;
 	int32_t				socket_fd;
 	uint16_t			sequence;
 	uint16_t			pid;
@@ -20,6 +21,7 @@ typedef struct ping_data_s {
 typedef struct ping_response_s {
 	struct timeval		trip_time;
 	struct sockaddr_in	address;
+	struct timeval		recv_timestamp;
 	size_t				packet_size;
 	int32_t				id;
 	uint8_t				ttl;
