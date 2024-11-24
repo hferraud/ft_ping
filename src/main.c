@@ -1,6 +1,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <error.h>
+#include <errno.h>
 
 #include "parser.h"
 #include "print.h"
@@ -29,6 +30,7 @@ int main(int argc, char** argv) {
 
 void sigint_handler(int signal) {
 	(void)signal;
+	exit(errno);
 }
 
 void at_exit(void) {

@@ -46,7 +46,9 @@ void ping(ping_data_t *ping_data) {
 	ping_send(ping_data);
 	while (1) {
 		if (ping_select(ping_data) == -1) {
-			ping_send(ping_data);
+			if (ping_data->cmd_args.count == 0 || rtt_g.transmitted < ping_data->cmd_args.count) {
+				ping_send(ping_data);
+			}
 		} else {
 			ping_recv(ping_data, &ping_response);
 			if (process_response(ping_data, &ping_response) == 0) {
@@ -64,7 +66,7 @@ void ping(ping_data_t *ping_data) {
 static void ping_send(ping_data_t *ping_data) {
 	ssize_t status;
 
-	ping_data->packet = malloc(ping_data->packet_size);
+	ping_data->packet = calloc(1, ping_data->packet_size);
 	if (ping_data->packet == NULL) {
 		error(EXIT_FAILURE, errno, "malloc failed");
 	}
